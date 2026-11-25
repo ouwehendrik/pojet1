@@ -1,0 +1,391 @@
+notes in code (OOP versie)
+
+eerst: wat is anders?
+
+in de oude versie waren dingen losse variabelen (timmyx, timmyy, pipes, score) en losse
+functies die daar naar keken. iedereen kon alles aanpassen. werkte, maar als het groeide
+wist je niet meer wie wat mocht veranderen.
+
+nu is alles een class — een recept voor een ding. Timmy is een class. Pipe is een class.
+je maakt er één met new Timmy(). Die heeft zijn eigen x, y, velY. niemand anders raakt
+die aan.
+
+de rest van deze notities loopt de bestanden af in de volgorde waarin je ze moet
+inladen (dat staat in index.html).
+
+────────────────────────────────────────────────────────────────────────────────
+
+bestand: config.js
+
+object: CONFIG
+geen class, gewoon een verzamelbakje met alle getallen op één plek. alle vorige
+const widthvar = 400 dingen staan hier nu in, gegroepeerd per onderwerp (timmy, pipe).
+
+waarom: als je de gap kleiner wilt maken kijk je op één plek, niet op zes.
+
+bevat:
+  CONFIG.width   = 400, CONFIG.height = 600   (canvas)
+  CONFIG.sky     = "#87CEEB"                  (achtergrond)
+  CONFIG.timmy.* = alle timmy-getallen (gravity, flapSpeed, size, startX/Y,
+                   maxRiseSpeed, maxFallSpeed)
+  CONFIG.pipe.*  = alle pipe-getallen (thickness, gap, speed, spacing,
+                   tolerance, color)
+
+object: STATE
+ook een gewoon object, 3 waarden:
+  READY   = "will_game"    (startscherm)
+  PLAYING = "gaming"       (aan het spelen)
+  OVER    = "gamed"        (dood)
+
+hiermee checkt game.js in welke fase hij zit. vroeger waren dat losse strings in de
+code ("gaming" overal uitgetypt), nu is het één naam. typfout in "gamming"? krijg
+je meteen.
+
+────────────────────────────────────────────────────────────────────────────────
+
+bestand: collision.js
+
+object: Collision
+geen class, gewoon een object met één functie. dezelfde circleRectOverlap als vroeger.
+
+waarom een object: zodat de rest van de code Collision.circleRectOverlap(...) kan
+zeggen en iedereen weet waar het vandaan komt. anders heb je weer een losse functie.
+
+functie: circleRectOverlap(cx, cy, r, rx, ry, rw, rh)
+zelfde als vroeger: geeft true/false, dichtstbijzijnde punt op de rechthoek,
+sqrt((x2-x1)^2 + (y2-y1)^2) maar zonder wortel, vergeleken met r^2.
+wordt geëxecuteerd door Pipe.collidesWith().
+
+
+ ---
+
+bestand: timmy.js
+
+class: Timmy
+de gast als class. elke keer dat je new Timmy() zegt krijg je een verse dude met
+zijn eigen x, y, velY.
+
+constructor()
+wordt automatisch gedraait als je new Timmy() doet. zet this.size, this.x, this.y,
+this.velY met de waarden uit CONFIG.
+
+functie: reset()
+zet x, y, velY terug naar beginwaarden.
+wordt geëxecuteerd door Game.reset() (wanneer je game over gaat en right-click doet).
+
+functie: flap()
+zet this.velY = CONFIG.timmy.flapSpeed (dat is -8, dus omhoog).
+wordt geëxecuteerd door Game.handleInput() bij left click in PLAYING.
+
+functie: update()
+de physics. drie dingen:
+  1. this.velY += gravity            (zwaartekracht trekt je naar beneden)
+  2. this.velY = constrain(..., maxRiseSpeed, maxFallSpeed)
+     (niet te snel omhoog, niet te snel omlaag — dezelfde clamp als vroeger)
+  3. this.y += this.velY             (positie aanpassen)
+
+daarna: als this.y - this.size <= 0, dan zit je tegen het plafond.
+zet y = size, velY = 0. plafond is niet dodelijk.
+wordt geëxecuteerd door Game.update().
+
+functie: hitFloor()
+geeft true als this.y + this.size >= CONFIG.height. dus als je de grond raakt.
+wordt geëxecuteerd door Game.update().
+
+functie: clampToFloor()
+zet this.y = CONFIG.height - this.size. dus je blijft netjes op de grond staan als
+je dood bent.
+wordt geëxecuteerd door Game.update() vlak voordat hij je dood verklaart.
+
+functie: draw()
+tekent de circle. noStroke, fill met skinColor, circle op x/y met size * 2 als
+diameter. zelfde als vroeger.
+wordt geëxecuteerd door Game.draw().
+
+-------
+
+bestand: pipe.js
+
+class: Pipe
+één pijp-paar. zelfstandig — weet niks van de manager die hem beheert.
+
+constructor(x, gapTop)
+krijgt x en gapTop mee (waar de gap verticaal begint). scored begint op false.
+
+getter: gapBottom
+gewoon een handigheidje: pipe.gapBottom geeft gapTop + gap.
+hoef je niet elke keer op te schrijven.
+
+getter: rightEdge
+zelfde idee: pipe.rightEdge = x + thickness. handig voor collision en scoring.
+
+functie: update()
+this.x -= CONFIG.pipe.speed. dus hij schuift naar links. that's it.
+wordt geëxecuteerd door PipeManager.update().
+
+functie: isOffScreen()
+true als rightEdge < 0, dus helemaal voorbij de linkerkant.
+wordt geëxecuteerd door PipeManager.update() om hem te verwijderen.
+
+functie: hasPassed(timmyX)
+true als timmyX > rightEdge, dus timmy is voorbij deze pijp.
+wordt geëxecuteerd door PipeManager.update() om te kijken of je een punt verdient.
+
+functie: collidesWith(timmy)
+roept Collision.circleRectOverlap 2 keer aan: één voor de bovenste pijp
+(0 tot gapTop), één voor de onderste (gapBottom tot height). als één van beide
+raakt, true.
+wordt geëxecuteerd door PipeManager.collidesWith() → Game.update().
+
+functie: draw()
+tekent twee groene rechthoeken: boven (0 tot gapTop) en onder (gapBottom tot height).
+de gap zelf blijft leeg.
+wordt geëxecuteerd door PipeManager.draw() → Game.draw().
+
+---------
+
+bestand: pipeManager.js
+
+class: PipeManager
+de baas van alle pijpen. houdt de array bij, spawnt nieuwe, schuift ze, ruimt dode
+op, telt punten.
+
+constructor()
+this.pipes = []  (lege array).
+
+functie: reset()
+this.pipes = []. bij game over → begin opnieuw.
+
+functie: spawnIfNeeded()
+kijkt naar de laatste pijp. als die ver genoeg naar links is (x < width - spacing)
+OF er zijn nog geen pijpen, maak een nieuwe.
+
+gapTop = random(tolerance, height - gap - tolerance)
+       = tussen 80 en 390 pixels (zelfde als vroeger).
+
+zet een nieuwe Pipe op x = width (rechterkant van het scherm).
+wordt geëxecuteerd door update().
+
+functie: update(timmy)
+  1. roept spawnIfNeeded() aan
+  2. loopt van achter naar voor door pipes (zodat splice niet in de war raakt)
+       pipe.update()  → schuif naar links
+       als !scored EN hasPassed(timmy.x) → scored = true, gained++
+       als isOffScreen() → splice uit de array
+  3. return gained (aantal punten deze frame)
+wordt geëxecuteerd door Game.update().
+
+belangrijk: geeft punten TERUG als getal. muteert NIET de scoreboard.
+dat doet Game. zo blijft PipeManager dom en Scoreboard dom, en Game de baas.
+
+functie: collidesWith(timmy)
+loopt door alle pipes, vraagt aan elke pipe.collidesWith(timmy).
+als één true is, return true.
+wordt geëxecuteerd door Game.update().
+
+functie: draw()
+loopt door alle pipes, roept pipe.draw(). that's it.
+wordt geëxecuteerd door Game.draw().
+--------------
+
+
+bestand: scoreboard.js
+
+class: Scoreboard
+pure data. geen tekening, geen game logica. gewoon twee getallen.
+
+constructor()
+this.score = 0, this.best = 0
+
+functie: reset()
+this.score = 0   (best blijft! die bewaar je tussen potjes)
+wordt geëxecuteerd door Game.reset().
+
+functie: add(points)
+this.score += points
+wordt geëxecuteerd door Game.update() (met de gained van PipeManager).
+
+functie: commitBest()
+als score > best: best = score
+wordt geëxecuteerd door Game.update() als je dood gaat.
+
+------
+
+bestand: hud.js
+
+class: Hud
+tekent alle tekst. leest state en scoreboard, muteert niks.
+
+constructor(scoreboard)
+krijgt de scoreboard van Game mee. slaat hem op als this.scoreboard.
+
+functie: draw(state)
+tekent:
+  "Score: X" op y=40
+  "Best: X"  op y=65
+  als state === READY: "Right-click to start"
+  als state === OVER:  "it's joever" + "Right-click to start again"
+
+zelfde als vroeger, maar netjes in één class.
+wordt geëxecuteerd door Game.draw().
+
+------
+
+bestand: game.js
+
+class: Game
+de baas. houdt alles bij. bestuurt de state machine.
+
+constructor()
+maakt:
+  this.timmy      = new Timmy()
+  this.pipes      = new PipeManager()
+  this.scoreboard = new Scoreboard()
+  this.hud        = new Hud(this.scoreboard)
+  this.state      = STATE.READY
+
+dit is de enige plek waar al die dingen gemaakt worden. daarna deelt Game ze uit
+aan wie ze nodig heeft (Hud krijgt de scoreboard).
+
+functie: reset()
+roept timmy.reset(), pipes.reset(), scoreboard.reset(). best blijft staan.
+wordt geëxecuteerd door handleInput() (OVER → READY).
+
+functie: start()
+this.state = STATE.PLAYING. that's it.
+wordt geëxecuteerd door handleInput() (READY → PLAYING).
+
+functie: update()
+als state NIET PLAYING is: niks doen (return).
+anders:
+  1. timmy.update()                        (physics)
+  2. gained = pipes.update(timmy)          (pijpen schuiven + punten)
+  3. als gained > 0: scoreboard.add(gained)
+  4. als pipes.collidesWith(timmy) OF timmy.hitFloor():
+       timmy.clampToFloor()
+       state = OVER
+       scoreboard.commitBest()
+wordt geëxecuteerd door draw() in sketch.js (elke frame).
+
+functie: draw()
+  1. background(CONFIG.sky)
+  2. pipes.draw()
+  3. timmy.draw()
+  4. hud.draw(state)
+wordt geëxecuteerd door draw() in sketch.js (elke frame).
+
+functie: handleInput(button)
+
+  state === READY:     right click -> start()
+  state === PLAYING:   left click  -> timmy.flap()
+                       right click -> niks
+  state === OVER:      right click -> reset() + state = READY
+                       left click  -> niks
+
+zelfde als vroeger (mousePressed), maar nu is de state de baas.
+wordt geëxecuteerd door mousePressed() in sketch.js.
+
+────────────────────────────────────────────────────────────────────────────────
+
+bestand: sketch.js
+
+dit is het enige bestand dat p5 kent. 3 functies, elk één regel.
+
+functie: setup()
+wordt door p5 aangeroepen als de pagina laadt.
+  createCanvas
+  noStroke
+  textAlign
+  contextmenu blokkeren (anders krijg je dat rechtse-muisknop menu)
+  game = new Game()    ← hier wordt alles gemaakt
+
+functie: draw()
+wordt door p5 60x per seconde aangeroepen.
+  game.update()
+  game.draw()
+
+twee regels. de echte logica zit in Game.
+
+functie: mousePressed()
+wordt door p5 aangeroepen als je klikt.
+  game.handleInput(mouseButton)
+
+één regel. game beslist wat er gebeurt.
+
+────────────────────────────────────────────────────────────────────────────────
+
+orde van dingen per frame (PLAYING)
+
+  1. p5 roept draw() aan (in sketch.js)
+  2. draw() roept game.update() aan
+  3. game.update() roept timmy.update() aan
+  4. game.update() roept pipes.update(timmy) aan
+       pipes spawnt, schuift, telt punten, ruimt op
+  5. game.update() telt punten bij scoreboard
+  6. game.update() checkt collision + floor
+       zo ja: game zet zichzelf in OVER
+  7. draw() roept game.draw() aan
+  8. game.draw() tekent achtergrond, pijpen, timmy, hud
+
+--------
+
+OOP cheat sheet  
+
+  class X { ... }     een recept voor een ding. nog geen ding zelf.
+  new X()             maakt één X. roept de constructor aan.
+  constructor()       setup. draait automatisch bij new.
+  this                "mijn eigen". this.x = deze X zijn x.
+  method              een functie die in de class woont. this.flap()
+  object (lowercase)  een gewoon verzamelbakje. CONFIG en Collision zijn dit.
+  getter              get gapBottom() { ... }. leest als een property,
+                      is stiekem een functie.
+
+wat is een class, kort:
+  - recept, geen ding. Timmy is het recept. new Timmy() is een ding.
+  - eigen velden via this.
+  - eigen functies (methods) via this.
+  - niemand anders mag aan je velden zitten behalve jij
+    (in theorie — JS dwingt het niet af, maar hou je eraan).
+
+wat is de baas, kort:
+  - Game is de baas. Game maakt alle andere dingen.
+  - Game verandert state.
+  - anderen veranderen alleen hun eigen velden.
+  - data stroomt omlaag (Game → Timmy), nooit omhoog (Timmy vraagt niet aan Game).
+  - uitzondering: PipeManager geeft punten terug aan Game als getal, ipv zelf
+    de Scoreboard aan te passen. zo blijft hij dom.
+
+private / public in UML:
+  - JS heeft het niet echt.
+  - - (private) en + (public) in UML zijn alleen bedoeling, niet afgedwongen.
+  - "-x" betekent "niet aankomen van buiten, ook al kun je erbij".
+    hou je eraan en de code blijft leesbaar.
+
+────────────────────────────────────────────────────────────────────────────────
+
+vergeleken met vroeger (1 op 1)
+
+  timmyx, timmyy, timmyVely   →  this.x, this.y, this.velY in Timmy
+  timmy_size                  →  CONFIG.timmy.size
+  newtons_will                →  CONFIG.timmy.gravity
+  antifallspeed               →  CONFIG.timmy.flapSpeed
+  maxfallspeed                →  CONFIG.timmy.maxFallSpeed
+  pipes array                 →  this.pipes in PipeManager
+  pipthick                    →  CONFIG.pipe.thickness
+  pipgap                      →  CONFIG.pipe.gap
+  pipvel                      →  CONFIG.pipe.speed
+  pipvoid                     →  CONFIG.pipe.spacing
+  piptolerance                →  CONFIG.pipe.tolerance
+  PIPE_COLOR                  →  CONFIG.pipe.color
+  score, bestScore            →  this.scoreboard.score, this.scoreboard.best
+  "will_game"/"gaming"/"gamed"→  STATE.READY / STATE.PLAYING / STATE.OVER
+
+  letspawnapip                →  PipeManager.spawnIfNeeded()
+  drawthemPipes               →  PipeManager.draw() (die roept Pipe.draw() aan)
+  circleRectOverlap           →  Collision.circleRectOverlap() (zelfde plek)
+  resethegame                 →  Game.reset()
+  mousePressed                →  Game.handleInput()
+                                 (p5 roept sketch.js's mousePressed aan,
+                                  die roept dit aan)
+  draw()                      →  Game.update() + Game.draw()
+  setup()                     →  sketch.js setup() (maakt new Game())

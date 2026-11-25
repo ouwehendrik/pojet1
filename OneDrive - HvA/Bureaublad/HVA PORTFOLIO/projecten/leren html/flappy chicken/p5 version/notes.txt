@@ -1,0 +1,64 @@
+notes in code:
+
+functie:
+
+
+functie: drawthempipes:
+tekent pipes, word geëxecuteerd door draw()
+is zodat hij bij een uitbreiding overzichtelijker wordt.
+
+
+functie: resetgame: 
+reset de game wanneer deze functie word uitgevoert als je game over gaat en op right click drukt.
+
+
+functie: mousePressed
+doet: input handling voor de game, bepaalt inputs per de game state
+left click en gaming: je vliegt omhoog
+left click en gamed: niks
+left click en will_game: niks
+right click en gaming: niks
+right click en gamed: reset
+right click en will_game: start
+
+functie: letspawnapip
+bepaalt of er een pipe word gemaakt, width - pipvoid, of de breedte - de ruimte tussen pijpen = er word een nieuwe pijp gemaakt
+als niet, dan verlaat de functie vroeger
+
+ook gebruikt ie de pipe margin en pipe gap grootte, tussen 80 en 390 pixels zit de gap
+
+daarna voegt hij de pijp fysiek toe, die krijgt een waarde 
+
+functie: circleRectOverlap
+geeft true of false, dichtsbijzijnde punt op de rechthoek
+formule afstand: sqrt((x2-x1)^2 + (y2-y1)^2)
+deze voert hij uit zonder wortel, en vergelijkt die met radius in het kwadraat
+als afstand tot pipe ^2 < r^2 dan is het goed, anders niet.
+
+functie: draw
+draw tekent de game frame voor frame 60 keer per seconde
+één frame gaat zo: 
+1. background(SKY)                      — scherm wissen
+2. if (state === "gaming") { ... }      — ALLEEN de physics + pijpen + collision
+3. drawthemPipes()                      — altijd
+4. circle(...)                          — Timmy, altijd
+5. HUD: score + best                    — altijd
+6. if (will_game) → titeltekst
+   else if (gamed) → game over tekst
+
+js cheat sheet:
+const is een onveranderbare constante
+let is ene variable die veranderbaar is, let[]; is een empty array
+arrays can be filled with .push
+0, true/false, "n" zijn integers, boleans, en strings.
+; is voor einde statement.
+// commment is een comment
+random(x,y) is een p5 functie die een random waarde tussen 2 geeft.
+draw() is een p5 functie die een tekenscript uitvoer op 60 fps
+fill( r, g, b, aplha) is een functie om dingen die erna, zoals een circle() of elipse() om hen een kleur te geven
+circle(co ordinaat, co  ordinaat, diameter) en elipse(x, y, diameter) om een circel een grootte te geven
+.length in een array haalt de waarde op van het aantal waarden, zet een array 10 keer en krijg 10 voor array.length
+setTimeout() is een vertraging
+for( let a of b) is een loop die een array omzetin een variabele
+! draait een criterium of waarde om
+ && is and, || is or, logic gates

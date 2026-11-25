@@ -1,0 +1,12 @@
+minesweeper p5:
+
+game uitbreiden kwa functies
+game sprites geven
+game sfx geven
+
+
+sir timmy  lite:
+
+input handling veranderen
+sprites toevoegen
+sfx toevoegen

@@ -1,0 +1,21 @@
+sequenceDiagram
+    participant p5 as p5 (browser)
+    participant G as Game
+    participant T as Timmy
+    participant PM as PipeManager
+    participant SB as Scoreboard
+
+    p5->>G: update()
+    G->>T: update()
+    T-->>T: velY += gravity
+    G->>PM: update(timmy)
+    PM-->>PM: spawn, move, cull pipes
+    PM-->>G: return gained points
+    G->>SB: add(gained)
+    G->>PM: collidesWith(timmy)
+    PM-->>G: return bool
+    alt hit pipe or floor
+        G->>T: clampToFloor()
+        G->>SB: commitBest()
+        G-->>G: state = OVER
+    end
